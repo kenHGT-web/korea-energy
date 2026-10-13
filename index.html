@@ -126,5 +126,10 @@ function setLanguage(lang){
 document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
 let savedLanguage='ru';try{savedLanguage=localStorage.getItem('korea-energy-language')||'ru';}catch(e){}
 setLanguage(savedLanguage);
-</script></body>
+</script>
+<!-- ENERGY ARCADE: optional online config, hidden games, custom UI -->
+<link rel="stylesheet" href="assets/styles.css">
+<script src="assets/config.js"></script>
+<script type="module" src="assets/main.js"></script>
+</body>
 </html>
