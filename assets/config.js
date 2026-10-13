@@ -1,3 +1,2 @@
-// Optional: replace with your Supabase public URL and publishable key.
-// Without configuration, all three games run and save local personal records.
-window.ENERGY_SUPABASE={url:'',anonKey:''};
+// ENERGY ARCADE — public browser config (not a secret)
+window.ENERGY_SUPABASE={url:'https://jibflwpkvatifmvhgegc.supabase.co',anonKey:'sb_publishable_xkJiB8vVnVHc-n0GhyXhaw_Q4AnPtUv'};
