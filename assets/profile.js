@@ -15,7 +15,7 @@ export async function renderPlayerProfile(target,user,client){
  try{
   const [{data:records,error:scoreError},{data:row,error:profileError}]=await Promise.all([
    client.from('leaderboard').select('game,best_score').eq('user_id',user.id),
-   client.from('player_profiles').select('avatar').eq('user_id',user.id).maybeSingle()
+   client.from('player_profiles').select('avatar,bio').eq('user_id',user.id).maybeSingle()
   ]);
   if(scoreError)throw scoreError;if(profileError)throw profileError;
   const scores={power:0,electrician:0,reactor:0};for(const r of records||[])if(Object.hasOwn(scores,r.game))scores[r.game]=Math.max(0,r.best_score);
@@ -42,6 +42,11 @@ export async function renderPlayerProfile(target,user,client){
    choices.append(b);
   }
   const message=document.createElement('p');message.className='arcade-note';message.setAttribute('role','status');target.append(message);
+  const bioTitle=document.createElement('h3');bioTitle.textContent='О СЕБЕ';target.append(bioTitle);
+  const bioInput=document.createElement('textarea');bioInput.className='arcade-field arcade-bio-input';bioInput.maxLength=300;bioInput.rows=4;bioInput.placeholder='Расскажи о себе, любимых играх или увлечениях (до 300 символов)';bioInput.value=row?.bio||'';target.append(bioInput);
+  const bioActions=document.createElement('div');bioActions.className='arcade-actions';const bioCounter=document.createElement('span');bioCounter.textContent=bioInput.value.length+'/300';const bioSave=document.createElement('button');bioSave.type='button';bioSave.className='arcade-btn';bioSave.textContent='💾 СОХРАНИТЬ ОПИСАНИЕ';bioActions.append(bioSave,bioCounter);target.append(bioActions);
+  bioInput.addEventListener('input',()=>bioCounter.textContent=bioInput.value.length+'/300');
+  bioSave.addEventListener('click',async()=>{bioSave.disabled=true;const {error}=await client.from('player_profiles').upsert({user_id:user.id,avatar,bio:bioInput.value.trim(),updated_at:new Date().toISOString()},{onConflict:'user_id'});bioSave.disabled=false;message.textContent=error?'Ошибка: '+error.message:'Описание сохранено и доступно другим игрокам.'});
   const scoreTitle=document.createElement('h3');scoreTitle.textContent='ЛИЧНЫЕ РЕКОРДЫ';target.append(scoreTitle);
   const table=document.createElement('div');table.className='arcade-profile-scores';
   for(const [key,name] of Object.entries(GAME_LABELS)){const item=document.createElement('div');const x=document.createElement('span');x.textContent=name;const y=document.createElement('strong');y.textContent=String(scores[key]);item.append(x,y);table.append(item)}target.append(table);
@@ -50,4 +55,20 @@ export async function renderPlayerProfile(target,user,client){
   for(const a of ACHIEVEMENTS){const earned=a.ok(scores);const item=document.createElement('div');item.className='arcade-achievement'+(earned?'':' locked');const icon=document.createElement('span');icon.textContent=earned?a.icon:'🔒';const txt=document.createElement('div');const heading=document.createElement('strong');heading.textContent=a.title;const desc=document.createElement('small');desc.textContent=a.text;txt.append(heading,desc);item.append(icon,txt);achievements.append(item)}target.append(achievements);
   const note=document.createElement('p');note.className='arcade-note';note.textContent='Уровень и достижения рассчитываются из лучших сохранённых онлайн-рекордов. Email и пароль другим игрокам не показываются.';target.append(note);
  }catch(e){target.textContent='Ошибка загрузки профиля: '+e.message}
+}
+
+export async function renderPublicProfile(target,client,userId){
+ target.textContent='Загрузка профиля...';
+ if(!client||!userId){target.textContent='Не удалось открыть профиль.';return}
+ const {data,error}=await client.from('public_player_cards').select('user_id,nickname,avatar,bio,power,electrician,reactor').eq('user_id',userId).maybeSingle();
+ if(error){target.textContent='Ошибка: '+error.message;return}
+ if(!data){target.textContent='Публичный профиль появится после первого результата в рейтинге.';return}
+ const scores={power:data.power||0,electrician:data.electrician||0,reactor:data.reactor||0};const total=Object.values(scores).reduce((a,b)=>a+b,0),level=Math.min(31,1+Math.floor(total/1000));
+ target.innerHTML='';
+ const hero=document.createElement('div');hero.className='arcade-profile-hero';
+ const avatar=document.createElement('span');avatar.className='arcade-profile-avatar';avatar.textContent=AVATARS[data.avatar]||AVATARS.bolt;
+ const info=document.createElement('div');const nick=document.createElement('h3');nick.textContent=data.nickname;const details=document.createElement('p');details.textContent='Уровень '+level+' • '+total+' очков';info.append(nick,details);hero.append(avatar,info);target.append(hero);
+ const label=document.createElement('h3');label.textContent='О СЕБЕ';const bio=document.createElement('p');bio.className='arcade-public-bio';bio.textContent=data.bio||'Игрок пока не написал описание.';target.append(label,bio);
+ const title=document.createElement('h3');title.textContent='РЕКОРДЫ';target.append(title);const table=document.createElement('div');table.className='arcade-profile-scores';for(const [game,score] of Object.entries(scores)){const row=document.createElement('div');const k=document.createElement('span');k.textContent=GAME_LABELS[game];const v=document.createElement('strong');v.textContent=score;row.append(k,v);table.append(row)}target.append(table);
+ const achievements=document.createElement('h3');achievements.textContent='ДОСТИЖЕНИЯ';target.append(achievements);const grid=document.createElement('div');grid.className='arcade-achievements';for(const a of ACHIEVEMENTS){const unlocked=a.ok(scores);const item=document.createElement('div');item.className='arcade-achievement'+(unlocked?'':' locked');const icon=document.createElement('span');icon.textContent=unlocked?a.icon:'🔒';const texts=document.createElement('div');const name=document.createElement('strong');name.textContent=a.title;const desc=document.createElement('small');desc.textContent=a.text;texts.append(name,desc);item.append(icon,texts);grid.append(item)}target.append(grid);
 }
